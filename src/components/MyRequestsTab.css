@@ -1,0 +1,19 @@
+.my-requests-tab {
+  padding: 20px;
+}
+
+.my-requests-tab table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.my-requests-tab th, .my-requests-tab td {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+.my-requests-tab th {
+  background-color: #f4f4f4;
+}

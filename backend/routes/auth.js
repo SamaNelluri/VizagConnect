@@ -202,53 +202,44 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ success: false, message: "User ID and OTP are required" });
     }
 
-    // Find latest OTP for user
-    const record = await OtpModel.findOne({ userId }).sort({ createdAt: -1 });
+    const otpRecord = await OtpModel.findOne({ userId, otp });
 
-    if (!record) {
-      return res.status(400).json({ success: false, message: "No OTP found. Please request a new OTP." });
+    if (!otpRecord) {
+      return res.status(400).json({ success: false, message: "Invalid OTP" });
     }
 
-    if (Date.now() > new Date(record.expiresAt).getTime()) {
-      await OtpModel.deleteMany({ userId });
+    if (otpRecord.expiresAt < new Date()) {
       return res.status(400).json({ success: false, message: "OTP expired" });
     }
 
-    if (record.otp !== otp) {
-      return res.status(401).json({ success: false, message: "Invalid OTP" });
-    }
+    // OTP is valid - delete it to prevent reuse
+    await OtpModel.deleteOne({ _id: otpRecord._id });
 
-    // Mark user as verified if not already
+    // Update lastLogin here
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    if (!user.isVerified) {
-      user.isVerified = true;
-      await user.save();
-    }
+    user.lastLogin = new Date();
+    await user.save();
 
-    // Delete OTPs after success
-    await OtpModel.deleteMany({ userId });
-
-    return res.status(200).json({
-      success: true,
-      message: "OTP verified successfully.",
-      user: {
-        id: user._id,
-        name: `${user.firstName} ${user.lastName}`,
-        role: user.role,
-        unit: user.unit,
-        isVerified: user.isVerified
-      }
-    });
+    // Return success with user info
+ return res.status(200).json({
+  success: true,
+  message: "OTP verified, login successful",
+  userId: user._id,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  lastLogin: user.lastLogin,
+});
 
   } catch (err) {
-    console.error("❌ Verify OTP error:", err);
+    console.error("❌ OTP verification error:", err);
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 // =======================================
 // POST /resend-otp - Resend OTP for user
@@ -292,5 +283,28 @@ router.post("/resend-otp", async (req, res) => {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
+// =======================================
+// GET /users/:id - Fetch user details
+// =======================================
+// GET /api/auth/:id - Fetch user by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('-password'); // exclude password field
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    return res.status(200).json({ success: true, user });
+  } catch (err) {
+    console.error("❌ Error fetching user by ID:", err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+
 
 module.exports = router;

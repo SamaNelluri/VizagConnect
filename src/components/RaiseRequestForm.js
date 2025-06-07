@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 import "./RaiseRequestForm.css";
 
 const RaiseRequestForm = () => {
@@ -12,15 +13,17 @@ const RaiseRequestForm = () => {
   const [message, setMessage] = useState("");
   const [unit, setUnit] = useState("");
 
-  // On mount, get userId from localStorage
+  const navigate = useNavigate(); // 👈 initialize router navigation
+
+  // Get userId from localStorage
   useEffect(() => {
     const storedUserId = localStorage.getItem("userId");
-if (storedUserId) {
-  setUserId(storedUserId);
-}
-}, []);
+    if (storedUserId) {
+      setUserId(storedUserId);
+    }
+  }, []);
 
-  // Get selected unit from localStorage on mount
+  // Get selected unit from localStorage
   useEffect(() => {
     const storedUnit = localStorage.getItem("selectedUnit");
     if (storedUnit) {
@@ -28,7 +31,7 @@ if (storedUserId) {
     }
   }, []);
 
-  // Fetch employee suggestions based on searchTerm and unit
+  // Fetch employee suggestions
   useEffect(() => {
     if (searchTerm.length < 1 || !unit) {
       setSuggestions([]);
@@ -38,9 +41,7 @@ if (storedUserId) {
     const fetchSuggestions = async () => {
       try {
         const res = await axios.get(
-          `http://localhost:5000/api/request/assign-to/search/${encodeURIComponent(
-            searchTerm
-          )}?unit=${encodeURIComponent(unit)}`
+          `http://localhost:5000/api/request/assign-to/search/${encodeURIComponent(searchTerm)}?unit=${encodeURIComponent(unit)}`
         );
         setSuggestions(res.data);
       } catch (err) {
@@ -52,7 +53,7 @@ if (storedUserId) {
     return () => clearTimeout(debounce);
   }, [searchTerm, unit]);
 
-  // Handle form submission
+  // Handle submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -80,6 +81,9 @@ if (storedUserId) {
       setDescription("");
       setSearchTerm("");
       setSuggestions([]);
+
+      // 👇 Navigate to MyRequestsTab after 1s
+      setTimeout(() => navigate("/my-requests"), 1000);
     } catch (err) {
       console.error("Request error:", err);
       setError(err.response?.data?.msg || "Failed to raise request");
