@@ -6,6 +6,7 @@ const UserSchema = new mongoose.Schema({
   email:     { type: String, required: true, unique: true, lowercase: true, trim: true },  // lowercase for consistency
   mobile:    { type: String, required: true, trim: true },
   password:  { type: String, required: true },
+  isVerified: { type: Boolean, default: false },
   lastLogin: { type: Date, default: null },
   role:      { type: String, enum: ['Principal', 'Suresh'], required: true },
   unit:      { type: String, enum: ['VIIT', 'VIEW', 'VIPT', 'WoS', 'VSCPS', 'City Office'], required: true }

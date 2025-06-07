@@ -1,25 +1,25 @@
 const express = require('express');
 const router = express.Router();
-const Request = require('../models/Request');
-const User = require('../models/User');
+const mongoose = require('mongoose');
 const nodemailer = require('nodemailer');
 const cron = require('node-cron');
-const mongoose = require('mongoose');
 
-// Email transporter setup
+const Request = require('../models/Request');
+const User = require('../models/User'); // ✅ Correct model import
+
+// ---------------------- Email Setup ----------------------
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: 'vizagconnect.notification@gmail.com',
-    pass: 'napheydtyjzlpfwd',
+    user: process.env.EMAIL_USER || 'vizagconnect.notification@gmail.com',
+    pass: process.env.EMAIL_PASS || 'napheydtyjzlpfwd',
   },
 });
 
-// Helper function to send emails
 async function sendEmail(to, subject, text) {
   try {
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: process.env.EMAIL_USER || 'vizagconnect.notification@gmail.com',
       to,
       subject,
       text,
@@ -29,27 +29,103 @@ async function sendEmail(to, subject, text) {
   }
 }
 
-// POST /api/requests/raise - Create new request
+// ---------------------- GET: All Unique Units ----------------------
+router.get('/units', async (req, res) => {
+  try {
+    const units = await User.distinct('unit');
+    res.json(units);
+  } catch (error) {
+    console.error('Error fetching units:', error);
+    res.status(500).json({ error: 'Failed to fetch units' });
+  }
+});
+
+// ---------------------- GET: Assign-To List by Unit ----------------------
+router.get('/assign-to/:unit', async (req, res) => {
+  try {
+    const unitParam = req.params.unit.trim().toLowerCase();
+
+    const validUnits = ['VIIT', 'VIEW', 'VIPT', 'WOS', 'VSCPS', 'City Office'];
+    const matchedUnit = validUnits.find(u => u.toLowerCase() === unitParam);
+
+    if (!matchedUnit) {
+      return res.status(400).json({ error: 'Invalid unit name' });
+    }
+
+    let filter = { unit: new RegExp('^' + matchedUnit + '$', 'i') };
+
+    if (matchedUnit.toLowerCase() === 'city office') {
+      filter.role = 'Principal';
+    }
+
+    const Users = await User.find(filter)
+      .select('_id firstName lastName email unit role')
+      .sort({ firstName: 1, lastName: 1 });
+
+    res.json(Users);
+  } catch (error) {
+    console.error('Error fetching Users by unit:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ---------------------- GET: Search Users by Name Prefix ----------------------
+router.get('/assign-to/search/:name', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { unit } = req.query;
+
+    if (!unit) {
+      return res.status(400).json({ msg: 'Unit is required for search' });
+    }
+
+    const nameRegex = new RegExp('^' + name, 'i');
+    const unitRegex = new RegExp('^' + unit + '$', 'i');
+
+    const filter = {
+      $and: [
+        { unit: unitRegex },
+        {
+          $or: [{ firstName: nameRegex }, { lastName: nameRegex }],
+        },
+      ],
+    };
+
+    const Users = await User.find(filter)
+      .select('_id firstName lastName email unit')
+      .sort({ firstName: 1, lastName: 1 });
+
+    res.json(Users);
+  } catch (error) {
+    console.error('Error searching assign-to Users by name + unit:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// ---------------------- POST: Raise a New Request ----------------------
 router.post('/raise', async (req, res) => {
   const { assignBy, assignTo, unit, description } = req.body;
 
-  // Validate required fields
-  if (!assignBy || !assignTo || !unit || !description) {
-    return res.status(400).json({ msg: 'All fields (assignBy, assignTo, unit, description) are required' });
+ if (!assignBy || !assignTo || !unit || !description) {
+    console.log('Missing fields:', { assignBy, assignTo, unit, description });
+    return res.status(400).json({ msg: 'All fields are required' });
   }
 
-  // Validate description length
+
   if (description.length > 100) {
     return res.status(400).json({ msg: 'Description max length is 100 chars' });
   }
 
-  // Validate Mongo ObjectIds
-  if (!mongoose.Types.ObjectId.isValid(assignBy) || !mongoose.Types.ObjectId.isValid(assignTo)) {
+  if (
+    !mongoose.Types.ObjectId.isValid(assignBy) ||
+    !mongoose.Types.ObjectId.isValid(assignTo)
+  ) {
     return res.status(400).json({ msg: 'Invalid user ID format' });
   }
 
   try {
-    // Find assignor and assignee users
     const assignor = await User.findById(assignBy);
     const assignee = await User.findById(assignTo);
 
@@ -57,92 +133,62 @@ router.post('/raise', async (req, res) => {
       return res.status(404).json({ msg: 'Assignor or assignee not found' });
     }
 
-    // Create new request
-    const newRequest = new Request({
-      assignBy,
-      assignTo,
-      unit,
-      description,
-    });
-
+    const newRequest = new Request({ assignBy, assignTo, unit, description });
     await newRequest.save();
 
-    // Prepare email content
-    const emailText = `New Task Assigned:
-Description: ${description}
-Assigned By: ${assignor.firstName} ${assignor.lastName}
-Assigned To: ${assignee.firstName} ${assignee.lastName}`;
+    const emailText = `New Task Assigned:\nDescription: ${description}\nAssigned By: ${assignor.firstName} ${assignor.lastName}\nAssigned To: ${assignee.firstName} ${assignee.lastName}`;
 
-    // Send notification emails
     await sendEmail(assignor.email, 'Task Raised Successfully', emailText);
     await sendEmail(assignee.email, 'New Task Assigned to You', emailText);
 
-    return res.status(201).json({ msg: 'Request raised successfully', request: newRequest });
+    res.status(201).json({ msg: 'Request raised successfully', request: newRequest });
   } catch (err) {
     console.error('Error raising request:', err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// GET requests raised by a user
+// ---------------------- GET: Requests Raised by a User ----------------------
 router.get('/raised-by/:userId', async (req, res) => {
   try {
-    const userId = req.params.userId;
-    const requests = await Request.find({ assignBy: userId })
+    const requests = await Request.find({ assignBy: req.params.userId })
       .populate('assignTo', 'firstName lastName email')
       .sort({ createdAt: -1 });
 
-    const enhanced = requests.map(r => {
-      const age = Math.floor((Date.now() - r.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        _id: r._id,
-        assignBy: r.assignBy,
-        assignTo: r.assignTo,
-        unit: r.unit,
-        description: r.description,
-        status: r.status,
-        createdAt: r.createdAt,
-        age,
-      };
-    });
+    const enhanced = requests.map((r) => ({
+      ...r.toObject(),
+      age: Math.floor((Date.now() - new Date(r.createdAt)) / (1000 * 60 * 60 * 24)),
+    }));
 
-    return res.json(enhanced);
+    res.json(enhanced);
   } catch (err) {
-    console.error('Error fetching requests raised by user:', err);
-    return res.status(500).json({ error: err.message });
+    console.error('Error fetching raised requests:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// GET requests assigned to a user
-router.get('/assigned-to/:userId', async (req, res) => {
+// ---------------------- GET: Requests Assigned to a User ----------------------
+router.get('/assigned-to/:UserId', async (req, res) => {
   try {
-    const userId = req.params.userId;
-    const requests = await Request.find({ assignTo: userId })
+    const UserId = req.params.UserId;
+
+    const requests = await Request.find({ assignTo: UserId })
       .populate('assignBy', 'firstName lastName email')
       .sort({ createdAt: -1 });
 
-    const enhanced = requests.map(r => {
-      const age = Math.floor((Date.now() - r.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-      return {
-        _id: r._id,
-        assignBy: r.assignBy,
-        assignTo: r.assignTo,
-        unit: r.unit,
-        description: r.description,
-        status: r.status,
-        createdAt: r.createdAt,
-        age,
-      };
-    });
+    const enhanced = requests.map((r) => ({
+      ...r.toObject(),
+      age: Math.floor((Date.now() - new Date(r.createdAt)) / (1000 * 60 * 60 * 24)),
+    }));
 
-    return res.json(enhanced);
+    res.json(enhanced);
   } catch (err) {
-    console.error('Error fetching requests assigned to user:', err);
-    return res.status(500).json({ error: err.message });
+    console.error('Error fetching assigned requests:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-// PUT /status/:requestId - Update request status
+// ---------------------- PUT: Update Request Status ----------------------
 router.put('/status/:requestId', async (req, res) => {
   const { status } = req.body;
   const validStatuses = ['Yet to Start', 'In Progress', 'Completed'];
@@ -152,88 +198,68 @@ router.put('/status/:requestId', async (req, res) => {
   }
 
   try {
-    const request = await Request.findById(req.params.requestId)
-      .populate('assignBy assignTo');
-
-    if (!request) {
-      return res.status(404).json({ msg: 'Request not found' });
-    }
+    const request = await Request.findById(req.params.requestId).populate(
+      'assignBy assignTo'
+    );
+    if (!request) return res.status(404).json({ msg: 'Request not found' });
 
     request.status = status;
     await request.save();
 
-    const emailText = `Task Status Updated:
-Description: ${request.description}
-Status: ${status}
-Assignor: ${request.assignBy.firstName} ${request.assignBy.lastName}
-Assignee: ${request.assignTo.firstName} ${request.assignTo.lastName}`;
+    const emailText = `Task Status Updated:\nDescription: ${request.description}\nStatus: ${status}\nAssignor: ${request.assignBy.firstName} ${request.assignBy.lastName}\nAssignee: ${request.assignTo.firstName} ${request.assignTo.lastName}`;
 
     await sendEmail(request.assignBy.email, 'Task Status Updated', emailText);
     await sendEmail(request.assignTo.email, 'Task Status Updated', emailText);
 
-    return res.json({ msg: 'Status updated', request });
+    res.json({ msg: 'Status updated', request });
   } catch (err) {
     console.error('Error updating status:', err);
-    return res.status(500).json({ error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Daily CRON job at 9 AM to remind about pending tasks older than 3 days (summary emails)
+// ---------------------- CRON: Daily Reminder ----------------------
 cron.schedule('0 9 * * *', async () => {
   try {
     const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
-
-    // Fetch all requests pending and older than 3 days
     const oldRequests = await Request.find({
       createdAt: { $lte: threeDaysAgo },
-      status: { $ne: 'Completed' }
+      status: { $ne: 'Completed' },
     }).populate('assignBy assignTo');
 
-    if (oldRequests.length === 0) {
-      console.log('No pending tasks older than 3 days.');
-      return;
-    }
+    if (!oldRequests.length) return console.log('No pending tasks older than 3 days.');
 
-    // Prepare maps to group tasks by assignBy and assignTo
     const assignByMap = new Map();
     const assignToMap = new Map();
 
-    for (const req of oldRequests) {
-      const age = Math.floor((Date.now() - req.createdAt.getTime()) / (1000 * 60 * 60 * 24));
-      const taskForAssignBy = `- "${req.description}" (Assigned to: ${req.assignTo.firstName} ${req.assignTo.lastName}, Age: ${age} day(s), Status: ${req.status})`;
-      const taskForAssignTo = `- "${req.description}" (Assigned by: ${req.assignBy.firstName} ${req.assignBy.lastName}, Age: ${age} day(s), Status: ${req.status})`;
+    oldRequests.forEach((req) => {
+      const age = Math.floor((Date.now() - new Date(req.createdAt)) / (1000 * 60 * 60 * 24));
+      const taskBy = `- "${req.description}" (Assigned to: ${req.assignTo.firstName} ${req.assignTo.lastName}, Age: ${age} day(s), Status: ${req.status})`;
+      const taskTo = `- "${req.description}" (Assigned by: ${req.assignBy.firstName} ${req.assignBy.lastName}, Age: ${age} day(s), Status: ${req.status})`;
 
-      // Group by assignBy user
-      const assignById = req.assignBy._id.toString();
-      if (!assignByMap.has(assignById)) {
-        assignByMap.set(assignById, { user: req.assignBy, tasks: [] });
+      if (!assignByMap.has(req.assignBy._id.toString())) {
+        assignByMap.set(req.assignBy._id.toString(), { user: req.assignBy, tasks: [] });
       }
-      assignByMap.get(assignById).tasks.push(taskForAssignBy);
+      assignByMap.get(req.assignBy._id.toString()).tasks.push(taskBy);
 
-      // Group by assignTo user
-      const assignToId = req.assignTo._id.toString();
-      if (!assignToMap.has(assignToId)) {
-        assignToMap.set(assignToId, { user: req.assignTo, tasks: [] });
+      if (!assignToMap.has(req.assignTo._id.toString())) {
+        assignToMap.set(req.assignTo._id.toString(), { user: req.assignTo, tasks: [] });
       }
-      assignToMap.get(assignToId).tasks.push(taskForAssignTo);
+      assignToMap.get(req.assignTo._id.toString()).tasks.push(taskTo);
+    });
+
+    for (const [_, { user, tasks }] of assignByMap) {
+      const text = `You have pending tasks older than 3 days:\n\n${tasks.join('\n')}\n\nPlease review them.`;
+      await sendEmail(user.email, 'Pending Task Reminder (Assignor)', text);
+    }
+    for (const [_, { user, tasks }] of assignToMap) {
+      const text = `You have pending tasks older than 3 days:\n\n${tasks.join('\n')}\n\nPlease review them.`;
+      await sendEmail(user.email, 'Pending Task Reminder (Assignee)', text);
     }
 
-    // Send one email per assignBy user with all their pending tasks
-    for (const { user, tasks } of assignByMap.values()) {
-      const emailText = `Hello ${user.firstName},\n\nYou have the following pending tasks you raised (older than 3 days):\n\n${tasks.join('\n')}\n\nPlease follow up accordingly.\n\nRegards,\nTask Management System`;
-      await sendEmail(user.email, 'Pending Tasks Summary (Tasks You Raised)', emailText);
-      console.log(`Summary email sent to assignBy: ${user.email}`);
-    }
-
-    // Send one email per assignTo user with all tasks assigned to them
-    for (const { user, tasks } of assignToMap.values()) {
-      const emailText = `Hello ${user.firstName},\n\nYou have the following pending tasks assigned to you (older than 3 days):\n\n${tasks.join('\n')}\n\nPlease take necessary action.\n\nRegards,\nTask Management System`;
-      await sendEmail(user.email, 'Pending Tasks Summary (Tasks Assigned to You)', emailText);
-      console.log(`Summary email sent to assignTo: ${user.email}`);
-    }
-
+    console.log('Reminder emails sent for old pending tasks.');
   } catch (error) {
-    console.error('Cron job error:', error);
+    console.error('Error sending reminder emails:', error);
   }
 });
 

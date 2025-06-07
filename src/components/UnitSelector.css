@@ -1,0 +1,48 @@
+/* UnitSelector.css */
+
+div {
+  margin: 20px auto;
+  max-width: 300px;
+  font-family: Arial, sans-serif;
+  padding: 0 10px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #333;
+  font-size: 1rem; /* responsive font size */
+}
+
+select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 1rem;
+  border-radius: 6px;
+  border: 1.5px solid #888;
+  background-color: #fff;
+  cursor: pointer;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+select:hover,
+select:focus {
+  border-color: #007bff;
+  outline: none;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 480px) {
+  div {
+    max-width: 100%;
+  }
+  label {
+    font-size: 0.9rem;
+  }
+  select {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+}

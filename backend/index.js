@@ -11,6 +11,10 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://nandhiniannikalla32200
 
 // Middleware
 app.use(cors({ origin: "*", credentials: true }));
+app.use(cors({
+  origin: 'http://localhost:3000', // Replace with your frontend URL in production
+  credentials: true
+}));
 app.use(express.json());
 app.use((req, res, next) => {
   res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -44,7 +48,7 @@ const requestRoutes = require('./routes/request'); // Add request routes here
 
 // Use Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/requests', requestRoutes);  // Mount the request routes
+app.use('/api/request', requestRoutes);  // Mount the request routes
 
 // Test API Route
 app.get('/', (req, res) => {
