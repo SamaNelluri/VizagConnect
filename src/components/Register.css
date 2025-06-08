@@ -1,35 +1,88 @@
+/* Import Poppins font (add to index.html as well) */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Poppins', sans-serif;
+  background: linear-gradient(to bottom right, #6a11cb, #2575fc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+/* Main container */
 .register-container {
   background: #fff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  padding: 40px 30px;
+  border-radius: 16px;
   width: 100%;
-  max-width: 400px;
-  margin: auto;
-}
-
-.register-container h2 {
+  max-width: 500px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
   text-align: center;
-  margin-bottom: 1rem;
 }
 
+/* Heading */
+.register-container h2 {
+  margin-bottom: 30px;
+  color: #6a11cb;
+  font-size: 28px;
+  font-weight: 600;
+}
+
+/* Input fields and dropdowns */
 .register-container input,
-.register-container select,
+.register-container select {
+  width: 95%;
+  padding: 12px 15px;
+  margin-bottom: 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: 0.3s ease;
+}
+
+.register-container input:focus,
+.register-container select:focus {
+  border-color: #6a11cb;
+  box-shadow: 0 0 0 3px rgba(106, 17, 203, 0.1);
+}
+
+/* Submit button */
 .register-container button {
   width: 100%;
-  padding: 0.6rem;
-  margin: 0.5rem 0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.register-container button {
-  background: #007bff;
+  padding: 12px;
+  background: linear-gradient(to right, #6a11cb, #2575fc);
   color: #fff;
-  font-weight: bold;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
   cursor: pointer;
+  transition: background 0.3s ease;
+  margin-top: 10px;
 }
 
 .register-container button:hover {
-  background: #0056b3;
+  background: linear-gradient(to right, #2575fc, #6a11cb);
+}
+
+/* Bottom navigation text */
+.register-container .nav-links {
+  margin-top: 20px;
+  font-size: 13px;
+}
+
+.register-container .nav-links a {
+  color: #6a11cb;
+  text-decoration: none;
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.register-container .nav-links a:hover {
+  color: #2575fc;
+  text-decoration: underline;
 }

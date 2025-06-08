@@ -3,7 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import './Register.css';
 
-const roles = ['Principal', 'Suresh'];
+const roles = ['Principal', 'City Office'];
 const units = ['VIIT', 'VIEW', 'VIPT', 'WoS', 'VSCPS', 'City Office'];
 
 const Register = () => {

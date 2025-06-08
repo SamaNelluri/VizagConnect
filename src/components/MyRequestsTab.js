@@ -51,17 +51,18 @@ const MyRequestsTab = () => {
             </tr>
           </thead>
           <tbody>
-            {requests.map((req, idx) => (
-              <tr key={req._id}>
-                <td>{idx + 1}</td>
-                <td>{req.assignTo?.firstName} {req.assignTo?.lastName}</td>
-                <td>{req.description}</td>
-                <td>{new Date(req.createdAt).toLocaleString()}</td>
-                <td>{req.age}</td>
-                <td>{req.status}</td>
-              </tr>
-            ))}
-          </tbody>
+  {requests.map((req, idx) => (
+    <tr key={req._id}>
+      <td data-label="S.No.">{idx + 1}</td>
+      <td data-label="Assign To">{req.assignTo?.firstName} {req.assignTo?.lastName}</td>
+      <td data-label="Task Description">{req.description}</td>
+      <td data-label="Raised On">{new Date(req.createdAt).toLocaleString()}</td>
+      <td data-label="Age of the Task (Days)">{req.age}</td>
+      <td data-label="Status">{req.status}</td>
+    </tr>
+  ))}
+</tbody>
+
         </table>
       )}
     </div>

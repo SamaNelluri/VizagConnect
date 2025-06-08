@@ -1,34 +1,57 @@
-.resend-otp-container {
-  background: #fff;
-  padding: 2rem;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.1);
-  width: 100%;
+/* ResendOtp.css */
+
+div {
   max-width: 400px;
-  margin: auto;
-}
-
-.resend-otp-container h2 {
+  margin: 40px auto;
+  padding: 30px 25px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 12px 24px rgba(106, 17, 203, 0.15);
+  font-family: 'Poppins', sans-serif;
+  color: #333;
   text-align: center;
-  margin-bottom: 1rem;
 }
 
-.resend-otp-container input,
-.resend-otp-container button {
+h2 {
+  color: #6a11cb;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+p {
+  font-weight: 600;
+  color: #2575fc;
+  margin-bottom: 20px;
+  min-height: 24px; /* prevent layout jump */
+}
+
+button {
+  padding: 12px 0;
   width: 100%;
-  padding: 0.6rem;
-  margin: 0.5rem 0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.resend-otp-container button {
-  background: #ffc107;
-  color: #000;
-  font-weight: bold;
+  font-size: 1.1rem;
+  font-weight: 600;
+  background: linear-gradient(45deg, #6a11cb, #2575fc);
+  border: none;
+  border-radius: 12px;
+  color: white;
   cursor: pointer;
+  user-select: none;
+  transition: background 0.3s ease;
 }
 
-.resend-otp-container button:hover {
-  background: #e0a800;
+button:hover {
+  background: linear-gradient(45deg, #2575fc, #6a11cb);
+}
+
+button:disabled {
+  background: #aaa;
+  cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+  div {
+    margin: 20px 15px;
+    padding: 25px 20px;
+  }
 }

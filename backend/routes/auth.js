@@ -6,28 +6,34 @@ const bcrypt = require("bcryptjs");
 const validator = require("validator");
 const nodemailer = require("nodemailer");
 
-// Environment variables or fallback email creds
+// Email credentials from environment or fallback
 const EMAIL_USER = process.env.EMAIL_USER || 'vizagconnect.notification@gmail.com';
 const EMAIL_PASS = process.env.EMAIL_PASS || 'napheydtyjzlpfwd';
 
-// Allowed roles and units (customize as needed)
-const allowedRoles = ['Principal', 'Suresh'];
+// Allowed roles and units
+const allowedRoles = ['Principal', 'City Office'];
 const allowedUnits = ['VIIT', 'VIEW', 'VIPT', 'WoS', 'VSCPS', 'City Office'];
 
 // Nodemailer transporter
 const transporter = nodemailer.createTransport({
   service: 'gmail',
-  auth: { user: EMAIL_USER, pass: EMAIL_PASS }
+  auth: {
+    user: EMAIL_USER,
+    pass: EMAIL_PASS,
+  },
 });
 
 // Verify transporter
 transporter.verify((err) => {
-  if (err) console.error("❌ Email transporter verification failed:", err.message);
-  else console.log("✅ Email transporter ready.");
+  if (err) {
+    console.error("❌ Email transporter verification failed:", err.message);
+  } else {
+    console.log("✅ Email transporter ready.");
+  }
 });
 
 // =======================================
-// POST /register - User registration
+// POST /register - User Registration
 // =======================================
 router.post("/register", async (req, res) => {
   try {
@@ -39,10 +45,10 @@ router.post("/register", async (req, res) => {
       confirmPassword,
       mobile,
       role,
-      unit
+      unit,
     } = req.body;
 
-    // Validate required fields
+    // Validation
     if (!firstName || !lastName || !email || !password || !confirmPassword || !mobile || !role || !unit) {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
@@ -71,16 +77,14 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid unit selected" });
     }
 
-    // Check if user exists
+    // Check for existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ success: false, message: "User already exists" });
     }
 
-    // Hash password
+    // Create new user
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Create user with isVerified: false
     const newUser = new User({
       firstName,
       lastName,
@@ -91,18 +95,13 @@ router.post("/register", async (req, res) => {
       unit,
       isVerified: false,
     });
-
     await newUser.save();
 
-    // Generate OTP, expires in 5 mins
+    // Create OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await OtpModel.create({
-      userId: newUser._id,
-      otp,
-      expiresAt,
-    });
+    await OtpModel.create({ userId: newUser._id, otp, expiresAt });
 
     // Send OTP email
     await transporter.sendMail({
@@ -115,7 +114,7 @@ router.post("/register", async (req, res) => {
     return res.status(201).json({
       success: true,
       message: "User registered successfully. OTP sent to your email.",
-      userId: newUser._id
+      userId: newUser._id,
     });
 
   } catch (err) {
@@ -125,7 +124,7 @@ router.post("/register", async (req, res) => {
 });
 
 // =======================================
-// POST /login - User login
+// POST /login - User Login
 // =======================================
 router.post("/login", async (req, res) => {
   try {
@@ -152,17 +151,12 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
-    // Generate OTP for login verification
+    // Generate OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await OtpModel.create({
-      userId: user._id,
-      otp,
-      expiresAt,
-    });
+    await OtpModel.create({ userId: user._id, otp, expiresAt });
 
-    // Send OTP email
     await transporter.sendMail({
       from: `"VizagConnect" <${EMAIL_USER}>`,
       to: user.email,
@@ -183,16 +177,7 @@ router.post("/login", async (req, res) => {
 });
 
 // =======================================
-// POST /logout - User logout
-// =======================================
-router.post("/logout", (req, res) => {
-  // Assuming token-based auth (JWT or sessions) is handled on frontend or middleware
-  // Here just send success response as logout typically client side
-  return res.status(200).json({ success: true, message: "Logged out successfully" });
-});
-
-// =======================================
-// POST /verify-otp - Verify OTP
+// POST /verify-otp - OTP Verification
 // =======================================
 router.post("/verify-otp", async (req, res) => {
   try {
@@ -203,7 +188,6 @@ router.post("/verify-otp", async (req, res) => {
     }
 
     const otpRecord = await OtpModel.findOne({ userId, otp });
-
     if (!otpRecord) {
       return res.status(400).json({ success: false, message: "Invalid OTP" });
     }
@@ -212,27 +196,26 @@ router.post("/verify-otp", async (req, res) => {
       return res.status(400).json({ success: false, message: "OTP expired" });
     }
 
-    // OTP is valid - delete it to prevent reuse
+    // Delete OTP
     await OtpModel.deleteOne({ _id: otpRecord._id });
 
-    // Update lastLogin here
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    user.isVerified = true;
     user.lastLogin = new Date();
     await user.save();
 
-    // Return success with user info
- return res.status(200).json({
-  success: true,
-  message: "OTP verified, login successful",
-  userId: user._id,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  lastLogin: user.lastLogin,
-});
+    return res.status(200).json({
+      success: true,
+      message: "OTP verified, login successful",
+      userId: user._id,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      lastLogin: user.lastLogin,
+    });
 
   } catch (err) {
     console.error("❌ OTP verification error:", err);
@@ -240,9 +223,8 @@ router.post("/verify-otp", async (req, res) => {
   }
 });
 
-
 // =======================================
-// POST /resend-otp - Resend OTP for user
+// POST /resend-otp - Resend OTP
 // =======================================
 router.post("/resend-otp", async (req, res) => {
   try {
@@ -257,17 +239,12 @@ router.post("/resend-otp", async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Delete old OTPs before creating new
     await OtpModel.deleteMany({ userId });
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
-    await OtpModel.create({
-      userId,
-      otp,
-      expiresAt,
-    });
+    await OtpModel.create({ userId, otp, expiresAt });
 
     await transporter.sendMail({
       from: `"VizagConnect" <${EMAIL_USER}>`,
@@ -285,26 +262,31 @@ router.post("/resend-otp", async (req, res) => {
 });
 
 // =======================================
-// GET /users/:id - Fetch user details
+// POST /logout - User Logout
 // =======================================
-// GET /api/auth/:id - Fetch user by ID
-router.get('/:id', async (req, res) => {
+router.post("/logout", (req, res) => {
+  // If token-based auth, token can be cleared on client side
+  return res.status(200).json({ success: true, message: "Logged out successfully" });
+});
+
+// =======================================
+// GET /:id - Get User Info by ID
+// =======================================
+router.get("/:id", async (req, res) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId).select('-password'); // exclude password field
+    const user = await User.findById(userId).select("-password");
 
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return res.status(404).json({ success: false, message: "User not found" });
     }
 
     return res.status(200).json({ success: true, user });
+
   } catch (err) {
     console.error("❌ Error fetching user by ID:", err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
-
-
-
 
 module.exports = router;
