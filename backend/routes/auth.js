@@ -105,10 +105,10 @@ router.post("/register", async (req, res) => {
 
     // Send OTP email
     await transporter.sendMail({
-      from: `"VizagConnect" <${EMAIL_USER}>`,
+      from: `"TaskBridge" <${EMAIL_USER}>`,
       to: newUser.email,
-      subject: "Your VizagConnect Registration OTP",
-      text: `Hi ${newUser.firstName},\n\nYour registration OTP is: ${otp}\nIt will expire in 5 minutes.\n\nRegards,\nVizagConnect Team`
+      subject: "Your TaskBridge Registration OTP",
+      text: `Hi ${newUser.firstName},\n\nYour registration OTP is: ${otp}\nIt will expire in 5 minutes.\n\nRegards,\ TaskBridge Team`
     });
 
     return res.status(201).json({
@@ -158,10 +158,10 @@ router.post("/login", async (req, res) => {
     await OtpModel.create({ userId: user._id, otp, expiresAt });
 
     await transporter.sendMail({
-      from: `"VizagConnect" <${EMAIL_USER}>`,
+      from: `"TaskBridge" <${EMAIL_USER}>`,
       to: user.email,
-      subject: "Your VizagConnect Login OTP",
-      text: `Hi ${user.firstName},\n\nYour login OTP is: ${otp}\nIt will expire in 5 minutes.\n\nRegards,\nVizagConnect Team`
+      subject: "Your TaskBridge Login OTP",
+      text: `Hi ${user.firstName},\n\nYour login OTP is: ${otp}\nIt will expire in 5 minutes.\n\nRegards,\TaskBridge Team`
     });
 
     return res.status(200).json({
@@ -247,10 +247,10 @@ router.post("/resend-otp", async (req, res) => {
     await OtpModel.create({ userId, otp, expiresAt });
 
     await transporter.sendMail({
-      from: `"VizagConnect" <${EMAIL_USER}>`,
+      from: `"TaskBridge" <${EMAIL_USER}>`,
       to: user.email,
-      subject: "Your VizagConnect OTP",
-      text: `Hi ${user.firstName},\n\nYour OTP is: ${otp}\nIt will expire in 5 minutes.\n\nRegards,\nVizagConnect Team`
+      subject: "Your TaskBridge OTP",
+      text: `Hi ${user.firstName},\n\nYour OTP is: ${otp}\nIt will expire in 5 minutes.\n\nRegards,\TaskBridge Team`
     });
 
     return res.status(200).json({ success: true, message: "OTP resent successfully." });
